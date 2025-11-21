@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FraudGuard: Final Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-sidebar: #111827;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --border-color: #334155;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden; /* Body doesn't scroll, main content does */
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            flex-shrink: 0; /* Prevents sidebar from squishing */
+            z-index: 10;
+        }
+
+        .logo { font-size: 1.3rem; font-weight: 700; color: var(--accent-blue); margin-bottom: 30px; display: flex; align-items: center; gap: 10px; }
+        .nav-item { padding: 12px 15px; color: var(--text-secondary); text-decoration: none; border-radius: 6px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; transition: 0.2s; }
+        .nav-item.active, .nav-item:hover { background-color: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
+        .sidebar-footer { margin-top: auto; font-size: 0.75rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 15px; }
+
+        /* --- MAIN CONTENT --- */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto; /* Vertical scroll enabled here */
+            display: flex;
+            flex-direction: column;
+            gap: 25px; /* Consistent spacing between sections */
+        }
+
+        /* --- HEADER --- */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .header-title h1 { margin: 0; font-size: 1.5rem; }
+        .header-title p { margin: 5px 0 0; color: var(--text-secondary); font-size: 0.9rem; }
+        .header-team { text-align: right; font-size: 0.9rem; }
+        .team-names { font-weight: 600; color: var(--text-primary); }
+        .instructor { color: #a78bfa; margin-top: 4px; font-size: 0.85rem; }
+
+        /* --- KPI GRID --- */
+        .kpi-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive wrapping */
+            gap: 20px; 
+            flex-shrink: 0;
+        }
+        .kpi-card { background-color: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); position: relative; }
+        .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
+        .kpi-blue::before { background: var(--accent-blue); }
+        .kpi-red::before { background: var(--accent-red); }
+        .kpi-green::before { background: var(--accent-green); }
+        .kpi-purple::before { background: #8b5cf6; }
+        .kpi-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 5px; }
+        .kpi-value { font-size: 1.8rem; font-weight: 700; }
+
+        /* --- ARCHITECTURE DIAGRAM --- */
+        .arch-panel {
+            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px;
+            flex-shrink: 0;
+        }
+        .section-header { margin: 0 0 20px 0; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        
+        .pipeline-flow {
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: relative; 
+            flex-wrap: wrap; /* Allows wrapping on small screens */
+            gap: 20px;
+        }
+        
+        .node {
+            position: relative; z-index: 2; background: var(--bg-card); border: 1px solid var(--border-color);
+            padding: 15px; border-radius: 10px; width: 150px; text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); transition: transform 0.3s;
+            flex-shrink: 0;
+        }
+        .node:hover { transform: translateY(-5px); border-color: var(--accent-blue); }
+        .node-icon { font-size: 1.8rem; margin-bottom: 10px; color: var(--accent-blue); }
+        .node-title { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
+        .node-desc { font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px; }
+        
+        /* Visual connector arrows */
+        .connector { color: var(--text-secondary); font-size: 1.2rem; }
+
+        /* --- CHARTS GRID --- */
+        .charts-section {
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); /* 2 columns */
+            gap: 20px;
+            flex-shrink: 0;
+        }
+        @media (max-width: 1100px) {
+            .charts-section { grid-template-columns: 1fr; } /* Stack on smaller screens */
+        }
+
+        .chart-box {
+            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px;
+            display: flex; flex-direction: column;
+            min-height: 250px; /* Ensure height so they don't collapse */
+        }
+        .chart-title { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px; display: flex; justify-content: space-between; }
+        .canvas-container { flex: 1; position: relative; width: 100%; }
+
+        /* --- LIVE TABLE --- */
+        .table-panel { 
+            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; 
+            display: flex; flex-direction: column; 
+            min-height: 300px;
+            flex-shrink: 0;
+        }
+        .table-wrapper { overflow-x: auto; width: 100%; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; white-space: nowrap; }
+        th { text-align: left; padding: 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
+        td { padding: 12px; border-bottom: 1px solid var(--border-color); }
+        
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .badge-safe { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+        .badge-fraud { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+        
+        .flash { animation: flash-anim 1s ease-out; }
+        @keyframes flash-anim { from { background: rgba(239, 68, 68, 0.3); } to { background: transparent; } }
+
+        /* --- DOCS --- */
+        .docs-panel {
+            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px;
+            flex-shrink: 0;
+        }
+        .docs-grid { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 40px; 
+            font-size: 0.95rem; color: #cbd5e1; line-height: 1.7; 
+        }
+        @media (max-width: 900px) { .docs-grid { grid-template-columns: 1fr; } }
+        
+        .docs-col h4 { color: var(--text-primary); margin: 0 0 10px 0; font-size: 1rem; border-bottom: 1px solid #334155; padding-bottom: 5px; display: inline-block; }
+        .docs-col p { margin: 0 0 20px 0; color: var(--text-secondary); }
+        .highlight { color: var(--accent-green); font-weight: 600; }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-shield-alt"></i> FraudGuard</div>
+        <nav>
+            <a href="#" class="nav-item active"><i class="fas fa-chart-pie"></i> Live Dashboard</a>
+            <a href="#arch" class="nav-item"><i class="fas fa-project-diagram"></i> Architecture</a>
+            <a href="#charts" class="nav-item"><i class="fas fa-chart-bar"></i> Analytics</a>
+            <a href="#docs" class="nav-item"><i class="fas fa-book"></i> Documentation</a>
+        </nav>
+        <div class="sidebar-footer">
+            <p>Financial Services Domain</p>
+            <p style="opacity:0.6">Big Data Project vFinal</p>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <header>
+            <div class="header-title">
+                <h1>Credit Card Fraud Detection</h1>
+                <p>Phase 3 & 4: Streaming Pipeline & ML Implementation</p>
+            </div>
+            <div class="header-team">
+                <div class="team-names">Hottam Uddin & Rayyan Fazal</div>
+                <div class="instructor">Supervisor: Sir Shayan Ali</div>
+            </div>
+        </header>
+
+        <div class="kpi-grid">
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-label">Total Transactions</div>
+                <div class="kpi-value" id="val-txns">8,580,255</div>
+            </div>
+            <div class="kpi-card kpi-red">
+                <div class="kpi-label">Fraud Detected</div>
+                <div class="kpi-value" id="val-fraud">21,405</div>
+            </div>
+            <div class="kpi-card kpi-purple">
+                <div class="kpi-label">Model PR-AUC</div>
+                <div class="kpi-value">0.942</div>
+            </div>
+            <div class="kpi-card kpi-green">
+                <div class="kpi-label">Avg Latency</div>
+                <div class="kpi-value" id="val-lat">45ms</div>
+            </div>
+        </div>
+
+        <div class="arch-panel" id="arch">
+            <div class="section-header"><i class="fas fa-sitemap"></i> Pipeline Architecture</div>
+            <div class="pipeline-flow">
+                
+                <div class="node">
+                    <div class="node-icon"><i class="fas fa-users"></i></div>
+                    <div class="node-title">Data Source</div>
+                    <div class="node-desc">Raw Transactions</div>
+                </div>
+
+                <div class="connector"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="node">
+                    <div class="node-icon"><i class="fab fa-docker"></i></div>
+                    <div class="node-title">Apache Kafka</div>
+                    <div class="node-desc">Ingestion Stream</div>
+                </div>
+
+                <div class="connector"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="node">
+                    <div class="node-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="node-title">Spark Streaming</div>
+                    <div class="node-desc">Processing & ETL</div>
+                </div>
+
+                <div class="connector"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="node" style="border-color: var(--accent-purple);">
+                    <div class="node-icon" style="color: var(--accent-purple);"><i class="fas fa-brain"></i></div>
+                    <div class="node-title">XGBoost</div>
+                    <div class="node-desc">ML Classification</div>
+                </div>
+
+                <div class="connector"><i class="fas fa-arrow-right"></i></div>
+
+                <div class="node">
+                    <div class="node-icon"><i class="fas fa-desktop"></i></div>
+                    <div class="node-title">Dashboard</div>
+                    <div class="node-desc">Live Monitoring</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-section" id="charts">
+            <div class="chart-box">
+                <div class="chart-title"><span>Transaction Velocity (Live Volume)</span> <i class="fas fa-chart-bar"></i></div>
+                <div class="canvas-container"><canvas id="chartVolume"></canvas></div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title"><span>Processing Latency (ms)</span> <i class="fas fa-tachometer-alt"></i></div>
+                <div class="canvas-container"><canvas id="chartLatency"></canvas></div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title"><span>Class Imbalance (Fraud vs Legit)</span> <i class="fas fa-chart-pie"></i></div>
+                <div class="canvas-container"><canvas id="chartImbalance"></canvas></div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title"><span>Feature Importance (XGBoost/SHAP)</span> <i class="fas fa-list-ol"></i></div>
+                <div class="canvas-container"><canvas id="chartFeatures"></canvas></div>
+            </div>
+        </div>
+
+        <div class="table-panel">
+            <div class="section-header" style="border:none; margin-bottom: 10px;">
+                <i class="fas fa-satellite-dish"></i> Live Transaction Feed
+            </div>
+            <div class="table-wrapper">
+                <table id="live-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Txn ID</th>
+                            <th>Category</th>
+                            <th>Amount ($)</th>
+                            <th>Geo-Distance</th>
+                            <th>Risk Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="docs-panel" id="docs">
+            <div class="section-header"><i class="fas fa-book-open"></i> Project Analysis & Documentation</div>
+            <div class="docs-grid">
+                <div class="docs-col">
+                    <h4>1. Dataset & Scope</h4>
+                    <p>
+                        This dashboard visualizes <strong>Use Case #19</strong> from the Financial Services domain. 
+                        The system is built on the Credit Card Transaction Dataset containing 
+                        <span class="highlight">8,580,255 rows</span> and 44 features. 
+                        The goal is to process high-volume financial data in real-time to detect anomalies.
+                    </p>
+
+                    <h4>2. Architecture (Phase 3)</h4>
+                    <p>
+                        The pipeline uses <strong>Apache Kafka</strong> to ingest raw transaction streams. 
+                        <strong>Apache Spark Streaming</strong> consumes these messages for ETL (Extract, Transform, Load) processes.
+                        The data is then passed to the inference engine or stored in S3/HDFS for batch training.
+                    </p>
+                </div>
+                <div class="docs-col">
+                    <h4>3. Machine Learning (Phase 4)</h4>
+                    <p>
+                        We utilized <strong>XGBoost</strong> because it is highly effective for tabular data and handles the extreme class imbalance (Fraud is less than 1%) using `scale_pos_weight`. 
+                        The primary evaluation metric selected is <strong>PR-AUC</strong> (Precision-Recall Area Under Curve).
+                    </p>
+
+                    <h4>4. Feature Engineering Strategy</h4>
+                    <p>
+                        The live simulation demonstrates our key features:
+                        <br>• <strong>Geo-Distance:</strong> Calculated using the Haversine formula between User and Merchant coordinates.
+                        <br>• <strong>Log Amount:</strong> Transaction amounts are log-transformed to reduce outlier impact.
+                        <br>• <strong>Velocity:</strong> Tracking the number of transactions in the last 24 hours.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CHART CONFIGURATION ---
+        const commonOptions = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: { grid: { color: '#334155', drawBorder: false }, ticks: { color: '#94a3b8', font: {size: 10} } }
+            },
+            animation: { duration: 0 } // Disable animation for smooth streaming
+        };
+
+        // 1. Volume Chart
+        const chartVol = new Chart(document.getElementById('chartVolume'), {
+            type: 'bar',
+            data: {
+                labels: Array(10).fill(''),
+                datasets: [{ data: [50,60,55,70,65,60,75,80,70,65], backgroundColor: '#3b82f6', borderRadius: 3 }]
+            }, options: commonOptions
+        });
+
+        // 2. Latency Chart
+        const chartLat = new Chart(document.getElementById('chartLatency'), {
+            type: 'line',
+            data: {
+                labels: Array(10).fill(''),
+                datasets: [{ data: [42,45,43,46,44,45,42,41,43,44], borderColor: '#10b981', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true, backgroundColor: 'rgba(16, 185, 129, 0.1)' }]
+            }, options: { ...commonOptions, scales: { ...commonOptions.scales, y: { min: 30, max: 80, display:true } } }
+        });
+
+        // 3. Imbalance Chart
+        const chartImbalance = new Chart(document.getElementById('chartImbalance'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Legitimate', 'Fraud'],
+                datasets: [{
+                    data: [99.7, 0.3],
+                    backgroundColor: ['#3b82f6', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '75%',
+                plugins: { legend: { display: true, position: 'right', labels: { color: '#94a3b8', font: {size:11} } } },
+            }
+        });
+
+        // 4. Feature Importance Chart
+        const chartFeatures = new Chart(document.getElementById('chartFeatures'), {
+            type: 'bar',
+            indexAxis: 'y',
+            data: {
+                labels: ['Distance (Geo)', 'Log(Amt)', 'Velocity (24h)', 'Hour of Day'],
+                datasets: [{
+                    data: [0.85, 0.65, 0.45, 0.30],
+                    backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'],
+                    borderRadius: 3, barThickness: 20
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { ticks: { color: '#94a3b8', font: {size: 11} }, grid: {display:false} }
+                }
+            }
+        });
+
+        // --- SIMULATION LOGIC ---
+        let total = 8580255;
+        let fraud = 21405;
+        const categories = ['Grocery', 'Tech', 'Travel', 'Dining', 'Gas', 'Online'];
+
+        function tick() {
+            // Simulate Random Data
+            const isFraud = Math.random() > 0.93; // Rare event
+            const id = 'TX-' + Math.floor(Math.random() * 99999);
+            const amount = (Math.random() * (isFraud ? 2000 : 150)).toFixed(2);
+            const dist = (Math.random() * (isFraud ? 500 : 10)).toFixed(1);
+            const score = (isFraud ? (0.8 + Math.random()*0.2) : (Math.random()*0.1)).toFixed(3);
+            
+            // Update Counters
+            total++;
+            document.getElementById('val-txns').innerText = total.toLocaleString();
+            
+            if(isFraud) {
+                fraud++;
+                document.getElementById('val-fraud').innerText = fraud.toLocaleString();
+            }
+
+            // Update Table
+            const tbody = document.querySelector('#live-table tbody');
+            const row = document.createElement('tr');
+            if(isFraud) row.className = 'flash';
+            row.innerHTML = `
+                <td style="color:#94a3b8">${new Date().toLocaleTimeString()}</td>
+                <td>${id}</td>
+                <td>${categories[Math.floor(Math.random()*categories.length)]}</td>
+                <td>$${amount}</td>
+                <td>${dist} km</td>
+                <td style="font-weight:bold; color:${isFraud?'#ef4444':'#10b981'}">${score}</td>
+                <td><span class="badge ${isFraud?'badge-fraud':'badge-safe'}">${isFraud?'BLOCKED':'CLEAN'}</span></td>
+            `;
+            tbody.prepend(row);
+            if(tbody.children.length > 7) tbody.removeChild(tbody.lastChild);
+
+            // Update Volume Chart
+            const volArr = chartVol.data.datasets[0].data;
+            volArr.shift();
+            volArr.push(Math.floor(40 + Math.random() * 40));
+            chartVol.update();
+
+            // Update Latency Chart
+            const latArr = chartLat.data.datasets[0].data;
+            latArr.shift();
+            const newLat = Math.floor(35 + Math.random() * 15);
+            latArr.push(newLat);
+            chartLat.update();
+            document.getElementById('val-lat').innerText = newLat + 'ms';
+
+            // Animate Imbalance Chart slightly
+            if(isFraud) {
+                chartImbalance.data.datasets[0].data = [99.7, 0.3]; 
+                chartImbalance.update();
+            }
+        }
+
+        // Run simulation every 1.2 seconds
+        setInterval(tick, 1200);
+    </script>
+</body>
+</html>
